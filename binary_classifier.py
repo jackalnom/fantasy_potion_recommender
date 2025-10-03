@@ -18,15 +18,7 @@ from sklearn.metrics import (
 
 import plotly.graph_objects as go
 
-ALLOWED_COLS = [
-    "adv_id", "potion_id", "avg_phys", "avg_magic",
-    "red", "green", "blue", "enjoyment"
-]
-
-FEATURE_COLS = [
-    "adv_id", "potion_id", "avg_phys", "avg_magic",
-    "red", "green", "blue"
-]
+FEATURE_COLS = ["adv_id", "potion_id", "avg_phys", "avg_magic", "red", "green", "blue"]
 
 def plot_roc_curves(y_true, scores_dict, out_html="roc_curve.html"):
     fig = go.Figure()
@@ -68,44 +60,34 @@ def plot_pr_curves(y_true, scores_dict, out_html="pr_curve.html"):
     fig.write_html(out_html, include_plotlyjs="cdn")
 
 def main():
-    # Load data (only allowed columns)
-    df = pd.read_csv("interactions.csv", usecols=ALLOWED_COLS)
+    # Load data
+    df = pd.read_csv("interactions.csv", usecols=FEATURE_COLS + ["enjoyment"])
 
     # Features and binary target
     X = df[FEATURE_COLS]
-    y = (df["enjoyment"] > 0.5).astype(int).values
+    y = (df["enjoyment"] > 0.5).astype(int)
 
     # Train/test split
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42, stratify=y
     )
 
-    # Pipelines
-    knn = Pipeline(steps=[
+    # Models
+    knn = Pipeline([
         ("scaler", StandardScaler()),
         ("knn", KNeighborsClassifier(n_neighbors=5))
     ])
-    rf = Pipeline(steps=[
-        # RF doesn't need scaling; keep structure consistent
-        ("rf", RandomForestClassifier(
-            n_estimators=200,
-            random_state=42,
-            n_jobs=-1
-        ))
-    ])
+    rf = RandomForestClassifier(n_estimators=200, random_state=42, n_jobs=-1)
 
     # Fit
     knn.fit(X_train, y_train)
     rf.fit(X_train, y_train)
 
-    # Predict labels
+    # Predict
     y_pred_knn = knn.predict(X_test)
-    y_pred_rf  = rf.predict(X_test)
-
-    # Predict probabilities for curves
+    y_pred_rf = rf.predict(X_test)
     y_proba_knn = knn.predict_proba(X_test)[:, 1]
-    # Access final step for RF proba
-    y_proba_rf = rf.named_steps["rf"].predict_proba(X_test)[:, 1]
+    y_proba_rf = rf.predict_proba(X_test)[:, 1]
 
     # Metrics helper
     def report(name, y_true, y_pred, y_proba):

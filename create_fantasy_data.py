@@ -13,17 +13,12 @@ SIGMOID_K = 40.0
 SIGMOID_MID = 0.7
 
 CLASS_WEIGHTS = [0.4, 0.3, 0.3]  # Fighter, Wizard, Paladin distribution
-LEVEL_MIN = 1
-LEVEL_MAX = 20
 
 # -----------------------------
 # Dice helpers
 # -----------------------------
-def roll(ndice: int, die_size: int) -> int:
-    return sum(random.randint(1, die_size) for _ in range(ndice))
-
-def roll_stat(ndice: int, die_size: int, modifier: int = 0) -> int:
-    return roll(ndice, die_size) + modifier
+def roll(ndice: int, die_size: int, modifier: int = 0) -> int:
+    return sum(random.randint(1, die_size) for _ in range(ndice)) + modifier
 
 # -----------------------------
 # Damage profiles
@@ -31,22 +26,13 @@ def roll_stat(ndice: int, die_size: int, modifier: int = 0) -> int:
 def fighter_damage(level: int):
     str_mod = 3
     if level <= 5:
-        phys = roll_stat(1, 8, str_mod)
+        phys, magic = roll(1, 8, str_mod), 0
     elif level <= 10:
-        phys = roll_stat(2, 8, 2 * str_mod)
+        phys, magic = roll(2, 8, 2 * str_mod), roll(1, 4)
     elif level <= 16:
-        phys = roll_stat(3, 8, 3 * str_mod)
+        phys, magic = roll(3, 8, 3 * str_mod), roll(2, 4)
     else:
-        phys = roll_stat(4, 8, 4 * str_mod)
-
-    if level <= 5:
-        magic = 0
-    elif level <= 10:
-        magic = roll(1, 4)
-    elif level <= 16:
-        magic = roll(2, 4)
-    else:
-        magic = roll(3, 4)
+        phys, magic = roll(4, 8, 4 * str_mod), roll(3, 4)
     return phys, magic
 
 def wizard_damage(level: int):
@@ -64,18 +50,13 @@ def wizard_damage(level: int):
 def paladin_damage(level: int):
     str_mod = 3
     if level <= 4:
-        phys = roll_stat(1, 8, str_mod)
-        magic = roll(1, 6)
+        return roll(1, 8, str_mod), roll(1, 6)
     elif level <= 10:
-        phys = roll_stat(2, 8, 2 * str_mod)
-        magic = roll(2, 6)
+        return roll(2, 8, 2 * str_mod), roll(2, 6)
     elif level <= 16:
-        phys = roll_stat(2, 8, 2 * str_mod)
-        magic = roll(3, 6)
+        return roll(2, 8, 2 * str_mod), roll(3, 6)
     else:
-        phys = roll_stat(3, 8, 3 * str_mod)
-        magic = roll(4, 6)
-    return phys, magic
+        return roll(3, 8, 3 * str_mod), roll(4, 6)
 
 profiles = {
     "Fighter": fighter_damage,
@@ -92,7 +73,7 @@ def generate_adventurers():
     classes = list(profiles.keys())
     for adv_id in range(N_ADV):
         cls = random.choices(classes, weights=CLASS_WEIGHTS, k=1)[0]
-        lvl = random.randint(LEVEL_MIN, LEVEL_MAX)
+        lvl = random.randint(1, 20)
         phys, magic = profiles[cls](lvl)
         rows.append({
             "adv_id": adv_id,
@@ -107,13 +88,10 @@ def generate_adventurers():
 # Potion generator
 # -----------------------------
 def sample_rgb_sum_100():
-    a = random.randint(0, 100)
-    b = random.randint(0, 100)
-    lo, hi = (a, b) if a <= b else (b, a)
-    r = lo
-    g = hi - lo
-    bl = 100 - hi
-    return r, g, bl
+    """Generate random RGB values that sum to 100."""
+    a, b = random.randint(0, 100), random.randint(0, 100)
+    a, b = (a, b) if a <= b else (b, a)  # sort
+    return a, b - a, 100 - b  # red, green, blue
 
 def generate_potions():
     random.seed(SEED + 1)
@@ -156,28 +134,25 @@ def sigmoid_enjoyment(raw_pref: float) -> float:
 def generate_interactions(adventurers_df, potions_df):
     rng = random.Random(SEED + 2)
     potion_ids = potions_df["potion_id"].tolist()
-    n_potions = len(potion_ids)
+    potion_lookup = potions_df.set_index("potion_id")[["red", "green", "blue"]].to_dict("index")
 
     rows = []
     for _, adv in adventurers_df.iterrows():
-        if PAIRS_PER_ADV <= n_potions:
-            chosen = rng.sample(potion_ids, PAIRS_PER_ADV)
-        else:
-            chosen = [rng.choice(potion_ids) for _ in range(PAIRS_PER_ADV)]
+        chosen = rng.sample(potion_ids, min(PAIRS_PER_ADV, len(potion_ids)))
 
         for pid in chosen:
-            pot = potions_df.loc[potions_df["potion_id"] == pid].iloc[0]
-            r, g, b = int(pot["red"]), int(pot["green"]), int(pot["blue"])
+            pot = potion_lookup[pid]
+            r, g, b = pot["red"], pot["green"], pot["blue"]
             rp = raw_preference(adv["class"], r, g, b)
             enjoyment = sigmoid_enjoyment(rp)
 
             rows.append({
-                "adv_id": int(adv["adv_id"]),
-                "potion_id": int(pid),
+                "adv_id": adv["adv_id"],
+                "potion_id": pid,
                 "class": adv["class"],
-                "level": int(adv["level"]),
-                "avg_phys": int(adv["avg_phys"]),
-                "avg_magic": int(adv["avg_magic"]),
+                "level": adv["level"],
+                "avg_phys": adv["avg_phys"],
+                "avg_magic": adv["avg_magic"],
                 "red": r, "green": g, "blue": b,
                 "raw_pref": round(rp, 6),
                 "enjoyment": round(enjoyment, 6)

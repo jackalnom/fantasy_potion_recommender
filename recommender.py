@@ -22,26 +22,24 @@ HOLDOUT_POS_PER_USER = 3   # hold out up to this many positives per user
 def precision_at_k(recommended, relevant, k):
     if k == 0:
         return 0.0
-    rec_k = recommended[:k]
-    hits = sum(1 for pid in rec_k if pid in relevant)
+    hits = sum(1 for pid in recommended[:k] if pid in relevant)
     return hits / k
 
 def recall_at_k(recommended, relevant, k):
-    if len(relevant) == 0:
+    if not relevant:
         return 0.0
-    rec_k = recommended[:k]
-    hits = sum(1 for pid in rec_k if pid in relevant)
+    hits = sum(1 for pid in recommended[:k] if pid in relevant)
     return hits / len(relevant)
 
 def average_precision_at_k(recommended, relevant, k):
-    if len(relevant) == 0:
+    if not relevant:
         return 0.0
     ap, hits = 0.0, 0
     for i, pid in enumerate(recommended[:k], start=1):
         if pid in relevant:
             hits += 1
             ap += hits / i
-    return ap / min(len(relevant), k) if k > 0 else 0.0
+    return ap / min(len(relevant), k)
 
 def evaluate_rankings(rec_lists, relevant_sets, k):
     p_list, r_list, ap_list = [], [], []
@@ -51,9 +49,9 @@ def evaluate_rankings(rec_lists, relevant_sets, k):
         r_list.append(recall_at_k(recs, rel, k))
         ap_list.append(average_precision_at_k(recs, rel, k))
     return (
-        float(np.mean(p_list) if p_list else 0.0),
-        float(np.mean(r_list) if r_list else 0.0),
-        float(np.mean(ap_list) if ap_list else 0.0),
+        np.mean(p_list) if p_list else 0.0,
+        np.mean(r_list) if r_list else 0.0,
+        np.mean(ap_list) if ap_list else 0.0,
     )
 
 # -----------------------------
