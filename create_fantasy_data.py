@@ -12,17 +12,10 @@ SEED = 42
 SIGMOID_K = 40.0
 SIGMOID_MID = 0.7
 
-CLASS_WEIGHTS = [0.4, 0.3, 0.3]  # Fighter, Wizard, Paladin distribution
+CLASS_WEIGHTS = [0.4, 0.3, 0.3]
 
-# -----------------------------
-# Dice helpers
-# -----------------------------
 def roll(ndice: int, die_size: int, modifier: int = 0) -> int:
     return sum(random.randint(1, die_size) for _ in range(ndice)) + modifier
-
-# -----------------------------
-# Damage profiles
-# -----------------------------
 def fighter_damage(level: int):
     str_mod = 3
     if level <= 5:
@@ -64,9 +57,6 @@ profiles = {
     "Paladin": paladin_damage,
 }
 
-# -----------------------------
-# Adventurer generator
-# -----------------------------
 def generate_adventurers():
     random.seed(SEED)
     rows = []
@@ -84,14 +74,10 @@ def generate_adventurers():
         })
     return pd.DataFrame(rows)
 
-# -----------------------------
-# Potion generator
-# -----------------------------
 def sample_rgb_sum_100():
-    """Generate random RGB values that sum to 100."""
     a, b = random.randint(0, 100), random.randint(0, 100)
-    a, b = (a, b) if a <= b else (b, a)  # sort
-    return a, b - a, 100 - b  # red, green, blue
+    a, b = (a, b) if a <= b else (b, a)
+    return a, b - a, 100 - b
 
 def generate_potions():
     random.seed(SEED + 1)
@@ -101,36 +87,27 @@ def generate_potions():
         rows.append({"potion_id": pid, "red": r, "green": g, "blue": b})
     return pd.DataFrame(rows)
 
-# -----------------------------
-# Preferences & enjoyment
-# -----------------------------
 def raw_preference(cls: str, r: int, g: int, b: int) -> float:
     R, G, B = float(r), float(g), float(b)
-    total = R + G + B
+    total = 100
     if total <= 0:
         return 0.0
     if cls == "Fighter":
-        # Ideal: 100 red, 0 green, 0 blue
         return R / total
     if cls == "Wizard":
-        # Ideal: 0 red, 0 green, 100 blue
         return B / total
     if cls == "Paladin":
-        # Ideal: 50 red, 0 green, 50 blue (balanced red/blue, no green)
         rb = R + B
         if rb <= 0:
             return 0.0
-        balance = 1.0 - (abs(R - B) / rb)  # 1.0 when R == B
-        return (rb / total) * balance      # 1.0 when R == B and G == 0
+        balance = 1.0 - (abs(R - B) / rb)
+        return (rb / total) * balance
     return (R + B) / (2.0 * total)
 
 def sigmoid_enjoyment(raw_pref: float) -> float:
     z = max(-60.0, min(60.0, SIGMOID_K * (raw_pref - SIGMOID_MID)))
     return 1.0 / (1.0 + math.exp(-z))
 
-# -----------------------------
-# Interaction generator
-# -----------------------------
 def generate_interactions(adventurers_df, potions_df):
     rng = random.Random(SEED + 2)
     potion_ids = potions_df["potion_id"].tolist()
@@ -160,9 +137,6 @@ def generate_interactions(adventurers_df, potions_df):
 
     return pd.DataFrame(rows)
 
-# -----------------------------
-# Main
-# -----------------------------
 if __name__ == "__main__":
     df_adv = generate_adventurers()
     df_pot = generate_potions()

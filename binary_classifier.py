@@ -60,36 +60,29 @@ def plot_pr_curves(y_true, scores_dict, out_html="pr_curve.html"):
     fig.write_html(out_html, include_plotlyjs="cdn")
 
 def main():
-    # Load data
     df = pd.read_csv("interactions.csv", usecols=FEATURE_COLS + ["enjoyment"])
 
-    # Features and binary target
     X = df[FEATURE_COLS]
     y = (df["enjoyment"] > 0.5).astype(int)
 
-    # Train/test split
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42, stratify=y
     )
 
-    # Models
     knn = Pipeline([
         ("scaler", StandardScaler()),
         ("knn", KNeighborsClassifier(n_neighbors=5))
     ])
     rf = RandomForestClassifier(n_estimators=200, random_state=42, n_jobs=-1)
 
-    # Fit
     knn.fit(X_train, y_train)
     rf.fit(X_train, y_train)
 
-    # Predict
     y_pred_knn = knn.predict(X_test)
     y_pred_rf = rf.predict(X_test)
     y_proba_knn = knn.predict_proba(X_test)[:, 1]
     y_proba_rf = rf.predict_proba(X_test)[:, 1]
 
-    # Metrics helper
     def report(name, y_true, y_pred, y_proba):
         acc = accuracy_score(y_true, y_pred)
         f1 = f1_score(y_true, y_pred)
@@ -108,7 +101,6 @@ def main():
     report("KNN", y_test, y_pred_knn, y_proba_knn)
     report("RandomForest", y_test, y_pred_rf, y_proba_rf)
 
-    # Plots
     scores = {"KNN": y_proba_knn, "RandomForest": y_proba_rf}
     plot_roc_curves(y_test, scores, out_html="roc_curve.html")
     plot_pr_curves(y_test, scores, out_html="pr_curve.html")
