@@ -5,6 +5,10 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.svm import SVC
+from sklearn.neural_network import MLPClassifier
+from sklearn.naive_bayes import GaussianNB
 from sklearn.metrics import (
     accuracy_score,
     f1_score,
@@ -18,7 +22,7 @@ from sklearn.metrics import (
 
 import plotly.graph_objects as go
 
-FEATURE_COLS = ["adv_id", "potion_id", "avg_phys", "avg_magic", "red", "green", "blue"]
+FEATURE_COLS = ["adv_id", "potion_id", "avg_phys", "avg_magic", "red", "green", "blue", "random_0", "random_1", "random_2", "random_3", "random_4", "random_5", "random_6", "random_7", "random_8", "random_9", "phys_var1", "phys_var2"]
 
 def plot_roc_curves(y_true, scores_dict, out_html="roc_curve.html"):
     fig = go.Figure()
@@ -29,7 +33,7 @@ def plot_roc_curves(y_true, scores_dict, out_html="roc_curve.html"):
     fig.add_trace(go.Scatter(x=[0,1], y=[0,1], mode="lines",
                              name="Chance", line=dict(dash="dash")))
     fig.update_layout(
-        title="ROC Curve (KNN vs RandomForest)",
+        title="ROC Curve Comparison",
         xaxis_title="False Positive Rate",
         yaxis_title="True Positive Rate",
         template="plotly_white",
@@ -50,7 +54,7 @@ def plot_pr_curves(y_true, scores_dict, out_html="pr_curve.html"):
                              name=f"Baseline (pos rate={pos_rate:.3f})",
                              line=dict(dash="dash")))
     fig.update_layout(
-        title="Precision–Recall Curve (KNN vs RandomForest)",
+        title="Precision–Recall Curve Comparison",
         xaxis_title="Recall",
         yaxis_title="Precision",
         template="plotly_white",
@@ -69,19 +73,50 @@ def main():
         X, y, test_size=0.2, random_state=42, stratify=y
     )
 
+    # Initialize classifiers
     knn = Pipeline([
         ("scaler", StandardScaler()),
         ("knn", KNeighborsClassifier(n_neighbors=5))
     ])
     rf = RandomForestClassifier(n_estimators=200, random_state=42, n_jobs=-1)
 
-    knn.fit(X_train, y_train)
-    rf.fit(X_train, y_train)
+    logistic = Pipeline([
+        ("scaler", StandardScaler()),
+        ("logistic", LogisticRegression(random_state=42, max_iter=2000, solver='lbfgs', C=0.1))
+    ])
 
-    y_pred_knn = knn.predict(X_test)
-    y_pred_rf = rf.predict(X_test)
-    y_proba_knn = knn.predict_proba(X_test)[:, 1]
-    y_proba_rf = rf.predict_proba(X_test)[:, 1]
+    svm = Pipeline([
+        ("scaler", StandardScaler()),
+        ("svm", SVC(probability=True, random_state=42))
+    ])
+
+    mlp = Pipeline([
+        ("scaler", StandardScaler()),
+        ("mlp", MLPClassifier(hidden_layer_sizes=(100, 50), random_state=42, max_iter=500))
+    ])
+
+    nb = Pipeline([
+        ("scaler", StandardScaler()),
+        ("nb", GaussianNB())
+    ])
+
+    # Train all classifiers
+    classifiers = {
+        "KNN": knn,
+        "RandomForest": rf,
+        "LogisticRegression": logistic,
+        "SVM": svm,
+        "MLP": mlp,
+        "NaiveBayes": nb
+    }
+
+    predictions = {}
+    probabilities = {}
+
+    for name, clf in classifiers.items():
+        clf.fit(X_train, y_train)
+        predictions[name] = clf.predict(X_test)
+        probabilities[name] = clf.predict_proba(X_test)[:, 1]
 
     def report(name, y_true, y_pred, y_proba):
         acc = accuracy_score(y_true, y_pred)
@@ -95,15 +130,14 @@ def main():
         print(f"F1 Score: {f1:.4f}")
         print(f"ROC AUC:  {auc:.4f}")
         print("\nClassification Report:")
-        print(classification_report(y_true, y_pred, digits=4))
+        print(classification_report(y_true, y_pred, digits=4, zero_division=0))
 
-    print("\n=== Enjoyment > 0.5 Classifier Comparison (KNN vs RandomForest) ===")
-    report("KNN", y_test, y_pred_knn, y_proba_knn)
-    report("RandomForest", y_test, y_pred_rf, y_proba_rf)
+    print("\n=== Enjoyment > 0.5 Classifier Comparison ===")
+    for name in classifiers.keys():
+        report(name, y_test, predictions[name], probabilities[name])
 
-    scores = {"KNN": y_proba_knn, "RandomForest": y_proba_rf}
-    plot_roc_curves(y_test, scores, out_html="roc_curve.html")
-    plot_pr_curves(y_test, scores, out_html="pr_curve.html")
+    plot_roc_curves(y_test, probabilities, out_html="roc_curve.html")
+    plot_pr_curves(y_test, probabilities, out_html="pr_curve.html")
 
     print("\nSaved interactive plots:")
     print(" - roc_curve.html")

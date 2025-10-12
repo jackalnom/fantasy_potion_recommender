@@ -65,13 +65,26 @@ def generate_adventurers():
         cls = random.choices(classes, weights=CLASS_WEIGHTS, k=1)[0]
         lvl = random.randint(1, 20)
         phys, magic = profiles[cls](lvl)
-        rows.append({
+
+        # Generate 10 random columns
+        random_cols = {f"random_{i}": random.uniform(0, 100) for i in range(10)}
+
+        # Generate two columns based on physical damage ± 2
+        phys_var1 = phys + random.randint(-2, 2)
+        phys_var2 = phys + random.randint(-2, 2)
+
+        row = {
             "adv_id": adv_id,
             "class": cls,
             "level": lvl,
             "avg_phys": phys,
             "avg_magic": magic
-        })
+        }
+        row.update(random_cols)
+        row["phys_var1"] = phys_var1
+        row["phys_var2"] = phys_var2
+
+        rows.append(row)
     return pd.DataFrame(rows)
 
 def sample_rgb_sum_100():
@@ -123,7 +136,7 @@ def generate_interactions(adventurers_df, potions_df):
             rp = raw_preference(adv["class"], r, g, b)
             enjoyment = sigmoid_enjoyment(rp)
 
-            rows.append({
+            row = {
                 "adv_id": adv["adv_id"],
                 "potion_id": pid,
                 "class": adv["class"],
@@ -133,7 +146,17 @@ def generate_interactions(adventurers_df, potions_df):
                 "red": r, "green": g, "blue": b,
                 "raw_pref": round(rp, 6),
                 "enjoyment": round(enjoyment, 6)
-            })
+            }
+
+            # Add the 10 random columns
+            for i in range(10):
+                row[f"random_{i}"] = adv[f"random_{i}"]
+
+            # Add the two physical damage variant columns
+            row["phys_var1"] = adv["phys_var1"]
+            row["phys_var2"] = adv["phys_var2"]
+
+            rows.append(row)
 
     return pd.DataFrame(rows)
 
