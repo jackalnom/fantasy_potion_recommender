@@ -148,10 +148,11 @@ def generate_interactions(adventurers_df, potions_df):
                 "enjoyment": round(enjoyment, 6)
             }
 
-            # Add the 10 random columns
             for i in range(10):
                 row[f"random_{i}"] = adv[f"random_{i}"]
-
+                # Add phys_var_squared column
+            
+            row["avg_phys_squared"] = adv["avg_phys"] ** 2
             # Add the two physical damage variant columns
             row["phys_var1"] = adv["phys_var1"]
             row["phys_var2"] = adv["phys_var2"]

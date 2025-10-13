@@ -22,7 +22,10 @@ from sklearn.metrics import (
 
 import plotly.graph_objects as go
 
-FEATURE_COLS = ["adv_id", "potion_id", "avg_phys", "avg_magic", "red", "green", "blue", "random_0", "random_1", "random_2", "random_3", "random_4", "random_5", "random_6", "random_7", "random_8", "random_9", "phys_var1", "phys_var2"]
+FEATURE_COLS = ["avg_phys_squared", "avg_magic", "red", "green", "blue", 
+                "random_0", "random_1", "random_2", "random_3", "random_4",
+                "random_5", "random_6", "random_7", "random_8", "random_9",
+                "avg_phys_squared", "phys_var1", "phys_var2"]
 
 def plot_roc_curves(y_true, scores_dict, out_html="roc_curve.html"):
     fig = go.Figure()
@@ -80,11 +83,6 @@ def main():
     ])
     rf = RandomForestClassifier(n_estimators=200, random_state=42, n_jobs=-1)
 
-    logistic = Pipeline([
-        ("scaler", StandardScaler()),
-        ("logistic", LogisticRegression(random_state=42, max_iter=2000, solver='lbfgs', C=0.1))
-    ])
-
     svm = Pipeline([
         ("scaler", StandardScaler()),
         ("svm", SVC(probability=True, random_state=42))
@@ -104,7 +102,6 @@ def main():
     classifiers = {
         "KNN": knn,
         "RandomForest": rf,
-        "LogisticRegression": logistic,
         "SVM": svm,
         "MLP": mlp,
         "NaiveBayes": nb
