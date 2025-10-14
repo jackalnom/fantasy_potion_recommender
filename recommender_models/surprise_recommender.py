@@ -1,12 +1,24 @@
 import pandas as pd
 import numpy as np
 from surprise import SVD, Dataset, Reader
-from surprise.model_selection import train_test_split as surprise_train_test_split
 from .base_recommender import BaseRecommender
 
 
 class SurpriseRecommender(BaseRecommender):
-    """Collaborative Filtering recommender using Surprise library's SVD."""
+    """Collaborative Filtering recommender using Surprise library's SVD.
+
+    Algorithm:
+    1. Use Surprise's biased SVD implementation
+    2. Learns user/item biases + latent factors via SGD optimization
+    3. Incorporates regularization to prevent overfitting
+    4. Predict: global_mean + user_bias + item_bias + (user_factors · item_factors)
+
+    Differs from custom CF by:
+    - Uses biases instead of mean-centering
+    - Optimizes via SGD instead of direct SVD decomposition
+    - Has built-in regularization (L2 penalty)
+
+    """
 
     DEFAULT_N_FACTORS = 50
     DEFAULT_N_EPOCHS = 50
@@ -43,8 +55,9 @@ class SurpriseRecommender(BaseRecommender):
 
         self.user_id_map = {uid: idx for idx, uid in enumerate(unique_users)}
         self.item_id_map = {iid: idx for idx, iid in enumerate(unique_items)}
-        self.global_mean = np.mean(enjoyments) if len(enjoyments) > 0 else 0.5
+        self.global_mean = np.mean(enjoyments)
 
+        # Convert to Surprise format
         ratings_df = pd.DataFrame({
             'userID': adv_ids,
             'itemID': potion_ids,
@@ -55,6 +68,7 @@ class SurpriseRecommender(BaseRecommender):
         data = Dataset.load_from_df(ratings_df[['userID', 'itemID', 'rating']], reader)
         trainset = data.build_full_trainset()
 
+        # Train via SGD optimization
         self.model.fit(trainset)
 
     def predict(self, X: pd.DataFrame) -> np.ndarray:
@@ -63,11 +77,7 @@ class SurpriseRecommender(BaseRecommender):
         for _, row in X.iterrows():
             user_id = row['adv_id']
             item_id = row['potion_id']
-
-            if user_id in self.user_id_map and item_id in self.item_id_map:
-                pred = self.model.predict(user_id, item_id, verbose=False)
-                predictions.append(np.clip(pred.est, 0.0, 1.0))
-            else:
-                predictions.append(self.global_mean)
+            pred = self.model.predict(user_id, item_id, verbose=False)
+            predictions.append(np.clip(pred.est, 0.0, 1.0))
 
         return np.array(predictions)

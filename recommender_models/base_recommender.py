@@ -31,9 +31,6 @@ class BaseRecommender(ABC):
         Returns:
             List of item IDs ranked by predicted score (highest first)
         """
-        if X_candidates is None or len(candidate_ids) == 0:
-            return []
-
         scores = self.predict(X_candidates)
         order = np.argsort(-scores)
         return [candidate_ids[i] for i in order]

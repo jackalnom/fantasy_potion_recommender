@@ -86,63 +86,68 @@ class RecommenderDataPrep:
         y_train = self.train_df[self.target_col].astype(float)
         return X_train, y_train
 
+    def _create_cf_interactions(self, aid, candidates):
+        """Create feature matrix for collaborative filtering (IDs only)."""
+        n = len(candidates)
+        X_cand = pd.DataFrame({
+            "adv_id": [aid] * n,
+            "potion_id": candidates
+        })
+        return X_cand, candidates
+
+    def _create_content_interactions(self, candidates, adv_phys, adv_magic):
+        """Create feature matrix for content-based models (features only)."""
+        pot_feats = self.potion_features.loc[candidates][["red", "green", "blue"]].values.astype(float)
+        n = len(candidates)
+
+        X_cand = pd.DataFrame(
+            np.column_stack([
+                np.full(n, float(adv_phys)),
+                np.full(n, float(adv_magic)),
+                pot_feats
+            ]),
+            columns=["avg_phys", "avg_magic", "red", "green", "blue"]
+        )
+        return X_cand, candidates
+
+    def _create_hybrid_interactions(self, aid, candidates, adv_phys, adv_magic):
+        """Create feature matrix for hybrid models (IDs + features)."""
+        pot_feats = self.potion_features.loc[candidates][["red", "green", "blue"]].values.astype(float)
+        n = len(candidates)
+
+        X_cand = pd.DataFrame(
+            np.column_stack([
+                np.full(n, float(aid)),
+                np.array(candidates, dtype=float),
+                np.full(n, float(adv_phys)),
+                np.full(n, float(adv_magic)),
+                pot_feats
+            ]),
+            columns=["adv_id", "potion_id", "avg_phys", "avg_magic", "red", "green", "blue"]
+        )
+        return X_cand, candidates
+
     def create_unseen_interactions(self, aid, model_feature_cols: list):
         """Create feature matrix for unseen interactions for a given adventurer."""
-        candidates = self.candidates_by_adv.get(aid, [])
-        if not candidates:
-            return None, []
+        candidates = self.candidates_by_adv[aid]
 
         # Check if this is a CF model (only needs adv_id and potion_id)
         if set(model_feature_cols) == {"adv_id", "potion_id"}:
-            # For collaborative filtering: just return IDs
-            valid_cands = candidates
-            n = len(valid_cands)
-            X_cand = pd.DataFrame({
-                "adv_id": [aid] * n,
-                "potion_id": valid_cands
-            })
-            return X_cand, valid_cands
+            return self._create_cf_interactions(aid, candidates)
 
         # For hybrid or content-based models: need features
-        if aid not in self.adv_features.index:
-            return None, []
-
         adv_phys, adv_magic = self.adv_features.loc[aid][["avg_phys", "avg_magic"]]
-
-        valid_cands = [pid for pid in candidates if pid in self.potion_features.index]
-        if not valid_cands:
-            return None, []
-
-        pot_feats = self.potion_features.loc[valid_cands][["red", "green", "blue"]].values.astype(float)
-        n = len(valid_cands)
 
         # Check if hybrid model (includes IDs + features)
         if "adv_id" in model_feature_cols and "potion_id" in model_feature_cols:
-            X_cand = pd.DataFrame(
-                np.column_stack([
-                    np.full(n, float(aid)),
-                    np.array(valid_cands, dtype=float),
-                    np.full(n, float(adv_phys)),
-                    np.full(n, float(adv_magic)),
-                    pot_feats
-                ]),
-                columns=model_feature_cols
-            )
+            return self._create_hybrid_interactions(aid, candidates, adv_phys, adv_magic)
         else:
             # Content-based only
-            X_cand = pd.DataFrame(
-                np.column_stack([
-                    np.full(n, float(adv_phys)),
-                    np.full(n, float(adv_magic)),
-                    pot_feats
-                ]),
-                columns=model_feature_cols
-            )
-        return X_cand, valid_cands
+            return self._create_content_interactions(candidates, adv_phys, adv_magic)
 
     def get_positive_rate(self):
         """Calculate global positive rate."""
-        return self.df["liked"].mean() if len(self.df) else 0.0
+        return self.df["liked"].mean()
 
     def get_user_count(self):
         """Get total number of unique users."""

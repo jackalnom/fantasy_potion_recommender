@@ -19,24 +19,18 @@ SAMPLE_N = 5
 
 def precision_at_k(recommended, relevant, k):
     """Calculate precision at k."""
-    if k == 0:
-        return 0.0
     hits = sum(1 for pid in recommended[:k] if pid in relevant)
     return hits / k
 
 
 def recall_at_k(recommended, relevant, k):
     """Calculate recall at k."""
-    if not relevant:
-        return 0.0
     hits = sum(1 for pid in recommended[:k] if pid in relevant)
     return hits / len(relevant)
 
 
 def average_precision_at_k(recommended, relevant, k):
     """Calculate average precision at k."""
-    if not relevant:
-        return 0.0
     ap, hits = 0.0, 0
     for i, pid in enumerate(recommended[:k], start=1):
         if pid in relevant:
@@ -49,14 +43,14 @@ def evaluate_rankings(rec_lists, relevant_sets, k):
     """Evaluate recommendation rankings across all users."""
     p_list, r_list, ap_list = [], [], []
     for aid, recs in rec_lists.items():
-        rel = relevant_sets.get(aid, set())
+        rel = relevant_sets[aid]
         p_list.append(precision_at_k(recs, rel, k))
         r_list.append(recall_at_k(recs, rel, k))
         ap_list.append(average_precision_at_k(recs, rel, k))
     return (
-        np.mean(p_list) if p_list else 0.0,
-        np.mean(r_list) if r_list else 0.0,
-        np.mean(ap_list) if ap_list else 0.0,
+        np.mean(p_list),
+        np.mean(r_list),
+        np.mean(ap_list),
     )
 
 
@@ -152,10 +146,7 @@ def main():
         recommendations[name] = {}
         for aid in data_prep.eval_users:
             X_cand, cand_ids = data_prep.create_unseen_interactions(aid, feature_cols)
-            if X_cand is not None:
-                recommendations[name][aid] = model.recommend(X_cand, cand_ids)
-            else:
-                recommendations[name][aid] = []
+            recommendations[name][aid] = model.recommend(X_cand, cand_ids)
 
     # Evaluate all models
     results = {}

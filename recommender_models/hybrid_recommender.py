@@ -59,7 +59,7 @@ class HybridRecommender(BaseRecommender):
 
         self.user_id_map = {uid: idx for idx, uid in enumerate(unique_users)}
         self.item_id_map = {iid: idx for idx, iid in enumerate(unique_items)}
-        self.global_mean = np.mean(enjoyments) if len(enjoyments) > 0 else 0.5
+        self.global_mean = np.mean(enjoyments)
 
         ratings_df = pd.DataFrame({
             'userID': adv_ids,
