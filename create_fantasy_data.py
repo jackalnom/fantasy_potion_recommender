@@ -5,12 +5,12 @@ import pandas as pd
 OUT_INTERACTIONS = "interactions.csv"
 
 N_ADV = 1000
-N_POTIONS = 100
-PAIRS_PER_ADV = 10
+N_POTIONS = 50
+PAIRS_PER_ADV = 20
 SEED = 42
 
 SIGMOID_K = 40.0
-SIGMOID_MID = 0.8
+SIGMOID_MID = 0.5
 
 CLASS_WEIGHTS = [0.4, 0.3, 0.3]
 
