@@ -5,56 +5,53 @@ import pandas as pd
 OUT_INTERACTIONS = "interactions.csv"
 
 N_ADV = 1000
-N_POTIONS = 50
+N_POTIONS = 200
 PAIRS_PER_ADV = 20
-SEED = 42
+SIGMOID_MID = 0.8
 
+SEED = 42
 SIGMOID_K = 40.0
-SIGMOID_MID = 0.5
+
 
 CLASS_WEIGHTS = [0.4, 0.3, 0.3]
 
 def roll(ndice: int, die_size: int, modifier: int = 0) -> int:
     return sum(random.randint(1, die_size) for _ in range(ndice)) + modifier
-def fighter_damage(level: int):
-    """Fighters now get a bit of magic damage at all levels."""
-    str_mod = 4
-    if level <= 5:
-        phys, magic = roll(1, 8, str_mod), roll(1, 4)
-    elif level <= 10:
-        phys, magic = roll(2, 8, 2 * str_mod), roll(1, 6)
-    elif level <= 16:
-        phys, magic = roll(3, 8, 3 * str_mod), roll(2, 6)
-    else:
-        phys, magic = roll(4, 8, 4 * str_mod), roll(3, 6)
-    return phys, magic
 
+def fighter_damage(level: int):
+    str_mod = 3
+    if level <= 5:
+        phys, magic = roll(1, 8, str_mod), 0
+    elif level <= 10:
+        phys, magic = roll(2, 8, 2 * str_mod), roll(1, 4)
+    elif level <= 16:
+        phys, magic = roll(3, 8, 3 * str_mod), roll(2, 4)
+    else:
+        phys, magic = roll(4, 8, 4 * str_mod), roll(3, 4)
+    return phys, magic
 
 def wizard_damage(level: int):
-    """Wizards retain strong magic, but now always do some physical damage."""
     if level <= 4:
-        phys, magic = roll(1, 6), roll(1, 12)
+        magic = roll(1, 12)
     elif level <= 10:
-        phys, magic = roll(2, 6), roll(2, 12)
+        magic = roll(2, 12)
     elif level <= 16:
-        phys, magic = roll(3, 6), roll(3, 12)
+        magic = roll(3, 12)
     else:
-        phys, magic = roll(4, 6), roll(4, 12)
+        magic = roll(4, 12)
+    phys = roll(1, 4)
     return phys, magic
-
 
 def paladin_damage(level: int):
-    """Paladins remain hybrid, but physical and magic scale more evenly."""
     str_mod = 3
     if level <= 4:
-        phys, magic = roll(1, 8, str_mod), roll(1, 8)
+        return roll(1, 8, str_mod), roll(1, 6)
     elif level <= 10:
-        phys, magic = roll(2, 8, 2 * str_mod), roll(2, 8)
+        return roll(2, 8, 2 * str_mod), roll(2, 6)
     elif level <= 16:
-        phys, magic = roll(3, 8, 3 * str_mod), roll(3, 8)
+        return roll(2, 8, 2 * str_mod), roll(3, 6)
     else:
-        phys, magic = roll(4, 8, 4 * str_mod), roll(4, 8)
-    return phys, magic
+        return roll(3, 8, 3 * str_mod), roll(4, 6)
 
 profiles = {
     "Fighter": fighter_damage,
@@ -115,6 +112,7 @@ def raw_preference(cls: str, r: int, g: int, b: int) -> float:
     if cls == "Wizard":
         return B / total
     if cls == "Paladin":
+        return 1 - (G/total)
         rb = R + B
         if rb <= 0:
             return 0.0
